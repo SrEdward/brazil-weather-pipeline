@@ -1,0 +1,16 @@
+version: 2
+
+sources:
+  - name: staging
+    database: DE_PROJECT_WEATHER_PIPELINE_DB
+    schema: STAGING
+    tables:
+      - name: RAW_WEATHER
+        description: "Raw weather data loaded from S3 via Open-Meteo API."
+        columns:
+          - name: STATION_ID
+            description: "Unique identifier for the weather station."
+          - name: DATE
+            description: "Date of the weather observation."
+          - name: STATE
+            description: "Brazillian state abbreviation."
