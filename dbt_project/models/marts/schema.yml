@@ -1,0 +1,62 @@
+version: 2
+
+models:
+  - name: mart_daily_temperature
+    description: "Dados diários de temperatura por estação com classificação e amplitude térmica."
+    columns:
+      - name: weather_date
+        description: "Data da observação."
+        tests:
+          - not_null
+
+      - name: station_name
+        description: "Nome da estação meteorológica."
+        tests:
+          - not_null
+
+      - name: state
+        description: "Estado brasileiro."
+        tests:
+          - not_null
+
+      - name: temp_category
+        description: "Classificação da temperatura média do dia."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["Muito Quente", "Quente", "Agradável", "Frio", "Muito Frio"]
+
+
+  - name: mart_state_summary
+    description: "Agregação diária de métricas climáticas por estado."
+    columns:
+      - name: state
+        description: "Estado brasileiro."
+        tests:
+          - not_null
+
+      - name: weather_date
+        description: "Data da observação."
+        tests:
+          - not_null
+
+      - name: station_count
+        description: "Número de estações no estado."
+        tests:
+          - not_null
+
+
+  - name: mart_rain_alerts
+    description: "Classificação de chuvas por estação e data."
+    columns:
+      - name: rain_category
+        description: "Categoria de intensidade da chuva."
+        tests:
+          - not_null
+          - accepted_values: 
+              values: ["Chuva Extrema", "Chuva Forte", "Chuva Moderada", "Chuva Fraca", "Sem Chuva"]
+
+      - name: precipitation_mm
+        description: "Precipitação em milímetros."
+        tests:
+          - not_null
