@@ -67,12 +67,12 @@ with DAG(
 
     transform_task = BashOperator(
         task_id='dbt_transform',
-        bash_command='cd /opt/airflow/dbt_project && dbt run --profiles-dir /root/.dbt',
+        bash_command='cd /opt/airflow/dbt_project && dbt run --profiles-dir /home/airflow/.dbt',
     )
 
     test_task = BashOperator(
         task_id='dbt_test',
-        bash_command='cd /opt/airflow/dbt_project && dbt test --profiles-dir /root/.dbt',
+        bash_command='cd /opt/airflow/dbt_project && dbt test --profiles-dir /home/airflow/.dbt',
     )
 
     # Define a ordem de execução
