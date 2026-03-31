@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 def get_snowflake_connection():
     """Cria e retorna uma conexão com o Snowflake."""
+
     return snowflake.connector.connect(
         account=os.getenv("SNOWFLAKE_ACCOUNT"),
         user=os.getenv("SNOWFLAKE_USER"),
@@ -28,6 +29,7 @@ def get_snowflake_connection():
 
 def read_from_s3(bucket: str, key: str) -> list[dict]:
     """Lê um arquivo JSON do S3 e retorna como lista de dicionários."""
+
     s3 = boto3.client(
         "s3",
         aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
@@ -43,6 +45,7 @@ def read_from_s3(bucket: str, key: str) -> list[dict]:
 
 def load_to_snowflake(records: list[dict], conn) -> None:
     """Carrega registros na tabela RAW_WEATHER do Snowflake."""
+
     cursor = conn.cursor()
 
     insert_sql = """
@@ -69,6 +72,7 @@ def load_to_snowflake(records: list[dict], conn) -> None:
 
 def s3_to_snowflake(bucket: str, target_date: str) -> None:
     """Orquestra a leitura do S3 e carga no Snowflake."""
+
     s3_key = f"raw/weather/{target_date}/data.json"
 
     logger.info(f"Iniciando carga S3 → Snowflake para data: {target_date}")
@@ -84,8 +88,39 @@ def s3_to_snowflake(bucket: str, target_date: str) -> None:
     logger.info("Carga concluída com sucesso!")
 
 
+def load_historical(bucket: str, start_date: str, end_date: str) -> None:
+    """
+    Carrega dados históricos do S3 para o Snowflake para um período completo.
+    start_date/end_date: formato YYYY-MM-DD
+    """
+
+    from datetime import datetime, timedelta
+
+    start = datetime.strptime(start_date, "%Y-%m-%d")
+    end = datetime.strptime(end_date, "%Y-%m-%d")
+
+    current = start
+    while current <= end:
+        date_str = current.strftime("%Y-%m-%d")
+        logger.info("Carregando data: {}".format(date_str))
+
+        try:
+            s3_to_snowflake(bucket=bucket, target_date=date_str)
+        except Exception as e:
+            logger.warning("Erro na data {}: {} - pulando.".format(date_str, e))
+        current += timedelta(days=1)
+
+
+
+# if __name__ == "__main__":
+#     s3_to_snowflake(
+#         bucket=os.getenv("S3_BUCKET"),
+#         target_date="2025-01-15"
+#     )
+
 if __name__ == "__main__":
-    s3_to_snowflake(
-        bucket=os.getenv("S3_BUCKET"),
-        target_date="2025-01-15"
+    load_historical(
+            bucket=os.getenv("S3_BUCKET"),
+            start_date="2024-01-01",
+            end_date="2024-12-31"
     )

@@ -121,8 +121,35 @@ def extract_and_load(bucket: str, target_date: str = None) -> None:
     logger.info(f"Total de registros carregados no S3: {len(all_records)}")
 
 
+def extract_historical(bucket: str, start_date: str, end_date: str) -> None:
+    """
+    Extrai dados históricos da Open-Meteo para um período completo.
+    Útil para backfill inicial do pipeline.
+    start_date/end_date: formato YYYY-MM-DD
+    """
+    from datetime import datetime, timedelta
+
+    start = datetime.strptime(start_date, "%Y-%m-%d")
+    end = datetime.strptime(end_date, "%Y-%m-%d")
+
+    current = start
+    while current <= end:
+        date_str = current.strftime("%Y-%m-%d")
+        logger.info("Processando data: {}".format(date_str))
+        extract_and_load(bucket=bucket, target_date=date_str)
+        current += timedelta(days=1)
+
+
 if __name__ == "__main__":
-    extract_and_load(
-        bucket=os.getenv("S3_BUCKET"),
-        target_date="2025-01-15"
+    extract_historical(
+            bucket=os.getenv("S3_BUCKET"),
+            start_date="2024-12-01",
+            end_date="2024-12-31"
     )
+
+
+# if __name__ == "__main__":
+#     extract_and_load(
+#             bucket=os.getenv("S3_BUCKET"),
+#             target_date="2024-06-27"
+#     )
