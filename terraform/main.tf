@@ -2,7 +2,7 @@ terraform {
 	required_providers {
 		aws = {
 			source = "hashicorp/aws"
-			version = "-> 5.0"
+			version = "~> 5.0"
 		}
 	}
 }
@@ -76,6 +76,10 @@ resource "aws_iam_user" "weather_pipeline" {
     Project = "brazil-weather-pipeline"
     ManagedBy = "terraform"
   }
+}
+
+resource "aws_iam_access_key" "weather_pipeline" {
+  user = aws_iam_user.weather_pipeline.name
 }
 
 resource "aws_iam_user_policy" "weather_pipeline_s3" {
