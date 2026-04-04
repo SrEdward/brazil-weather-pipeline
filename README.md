@@ -177,7 +177,7 @@ ORDER BY avg_temp DESC;
 - [x] dbt Transformations (staging + 3 marts)
 - [x] Airflow Orchestration
 - [x] Docker containerization
-- [ ] Terraform infrastructure provisioning
+- [X] Terraform infrastructure provisioning
 - [ ] Apache Iceberg lakehouse layer
 - [ ] Kafka real-time streaming layer
 
