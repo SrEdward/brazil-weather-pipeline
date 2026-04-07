@@ -2,7 +2,6 @@ import boto3
 import json
 import logging
 import os
-import duckdb
 import pyarrow as pa
 
 from datetime import datetime
