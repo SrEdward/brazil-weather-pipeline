@@ -91,3 +91,67 @@ def get_or_create_table(catalog):
         logger.info("Tabela '{}' carregada.".format(full_name))
 
     return table
+
+
+def read_from_s3(bucket: str, date: str) -> list[dict]:
+    """Lê dados crus JSON do S3."""
+
+    s3 = boto3.client(
+            "s3",
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+            region_name=os.getenv("AWS_REGION", "us-east-1")
+    )
+
+    key = "raw/weather/{}/data.json".format(date)
+    response = s3.get_object(Bucket=bucket, Key=key)
+
+    return json.loads(response["Body"].read().decode("utf-8"))
+
+
+def write_to_iceberg(table, records: list[dict]) -> None:
+    """Escreve registros na tabela Iceberg utilizando o PyArrow."""
+
+    from datetime import date as date_type
+
+    arrow_table = pa.table({
+        "station_id": pa.array([r["station_id"] for r in records], type=pa.string()),
+        "station_name": pa.array([r["station_name"] for r in records], type=pa.string()),
+        "state": pa.array([r["state"] for r in records], type=pa.string()),
+        "latitude": pa.array([r["latitude"] for r in records], type=pa.float32()),
+        "longitude": pa.array([r["longitude"] for r in records], type=pa.float32()),
+        "weather_date": pa.array([date_type.fromisoformat(r["date"]) for r in records], type=pa.date32()),
+        "temp_max_c": pa.array([r["temp_max"] for r in records], type=pa.float32()),
+        "temp_min_c": pa.array([r["temp_min"] for r in records], type=pa.float32()),
+        "temp_mean_c": pa.array([r["temp_mean"] for r in records], type=pa.float32()),
+        "precipitation_mm": pa.array([r["precipitation_mm"] for r in records], type=pa.float32()),
+        "windspeed_max_kmh": pa.array([r["windspeed_max"] for r in records], type=pa.float32()),
+        "humidity_max_pct": pa.array([r["humidity_max"] for r in records], type=pa.float32()),
+        "humidity_min_pct": pa.array([r["humidity_min"] for r in records], type=pa.float32()),
+        "extracted_at": pa.array([datetime.fromisoformat(r["extracted_at"]) for r in records], type=pa.timestamp("us"))
+    })
+
+    table.append(arrow_table)
+
+    logger.info("{} registros escritos no Iceberg.".format(len(records)))
+
+
+    def write_date_to_iceberg(bucket: str, date: str) -> None:
+        """Pipeline completo: S3 JSON raw -> Iceberg."""
+
+        logger.info("Escrevendo data {} no Iceberg...".format(date))
+
+        records = read_from_s3(bucket, date)
+        catalog = get_catalog()
+        table = get_or_create_table(catalog)
+
+        write_to_iceberg(table, records)
+
+        logger.info("Concluído!")
+
+
+if __name__ == "__main__":
+    write_date_to_iceberg(
+            bucket=os.getenv("S3_BUCKET"),
+            date="2024-01-01"
+    )
