@@ -136,18 +136,18 @@ def write_to_iceberg(table, records: list[dict]) -> None:
     logger.info("{} registros escritos no Iceberg.".format(len(records)))
 
 
-    def write_date_to_iceberg(bucket: str, date: str) -> None:
-        """Pipeline completo: S3 JSON raw -> Iceberg."""
+def write_date_to_iceberg(bucket: str, date: str) -> None:
+    """Pipeline completo: S3 JSON raw -> Iceberg."""
 
-        logger.info("Escrevendo data {} no Iceberg...".format(date))
+    logger.info("Escrevendo data {} no Iceberg...".format(date))
 
-        records = read_from_s3(bucket, date)
-        catalog = get_catalog()
-        table = get_or_create_table(catalog)
+    records = read_from_s3(bucket, date)
+    catalog = get_catalog()
+    table = get_or_create_table(catalog)
 
-        write_to_iceberg(table, records)
+    write_to_iceberg(table, records)
 
-        logger.info("Concluído!")
+    logger.info("Concluído!")
 
 
 if __name__ == "__main__":
