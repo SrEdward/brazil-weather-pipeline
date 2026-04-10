@@ -6,28 +6,28 @@ import pyarrow as pa
 
 from datetime import datetime
 from dotenv import load_dotenv
-from pyiceberg.catalog_glue import GlueCatalog
+from pyiceberg.catalog.glue import GlueCatalog
 from pyiceberg.schema import Schema
 from pyiceberg.partitioning import PartitionSpec, PartitionField
-from pyiceberg.transform import MonthTransform
+from pyiceberg.transforms import MonthTransform
 
 from pyiceberg.types import (
         NestedField, StringType, FloatType, DateType, TimestampType
 )
 
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 SCHEMA = Schema(
-        NestedField(1, "station_id", StringType(), required=True),
-        NestedField(2, "station_name", StringType(), required=True),
-        NestedField(3, "state", StringType(), required=True),
+        NestedField(1, "station_id", StringType(), required=False),
+        NestedField(2, "station_name", StringType(), required=False),
+        NestedField(3, "state", StringType(), required=False),
         NestedField(4, "latitude", FloatType(), required=False),
         NestedField(5, "longitude", FloatType(), required=False),
-        NestedField(6, "weather_date", DateType(), required=True),
+        NestedField(6, "weather_date", DateType(), required=False),
         NestedField(7, "temp_max_c", FloatType(), required=False),
         NestedField(8, "temp_min_c", FloatType(), required=False),
         NestedField(9, "temp_mean_c", FloatType(), required=False),
@@ -57,7 +57,8 @@ def get_catalog():
                 "warehouse": "s3://{}/iceberg".format(os.getenv("S3_BUCKET")),
                 "region_name": os.getenv("AWS_REGION", "us-east-1"),
                 "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID"),
-                "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY")
+                "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
+                "glue.region": os.getenv("AWS_REGION", "us-east-1")
             }
         )
 

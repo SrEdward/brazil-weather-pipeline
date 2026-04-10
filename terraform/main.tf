@@ -105,3 +105,27 @@ resource "aws_iam_user_policy" "weather_pipeline_s3" {
     ]
   })
 }
+
+resource "aws_iam_user_policy" "weather_pipeline_glue" {
+  name = "weather-pipeline-glue-policy"
+  user = aws_iam_user.weather_pipeline.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "glue:CreateDatabase",
+          "glue:GetDatabase",
+          "glue:CreateTable",
+          "glue:GetTable",
+          "glue:UpdateTable",
+          "glue:DeleteTable",
+          "glue:GetTables"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
