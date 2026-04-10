@@ -22,12 +22,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 SCHEMA = Schema(
-        NestedField(1, "station_id", StringType(), required=True),
-        NestedField(2, "station_name", StringType(), required=True),
-        NestedField(3, "state", StringType(), required=True),
+        NestedField(1, "station_id", StringType(), required=False),
+        NestedField(2, "station_name", StringType(), required=False),
+        NestedField(3, "state", StringType(), required=False),
         NestedField(4, "latitude", FloatType(), required=False),
         NestedField(5, "longitude", FloatType(), required=False),
-        NestedField(6, "weather_date", DateType(), required=True),
+        NestedField(6, "weather_date", DateType(), required=False),
         NestedField(7, "temp_max_c", FloatType(), required=False),
         NestedField(8, "temp_min_c", FloatType(), required=False),
         NestedField(9, "temp_mean_c", FloatType(), required=False),
