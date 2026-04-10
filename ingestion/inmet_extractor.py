@@ -143,7 +143,7 @@ def extract_historical(bucket: str, start_date: str, end_date: str) -> None:
 if __name__ == "__main__":
     extract_historical(
             bucket=os.getenv("S3_BUCKET"),
-            start_date="2024-12-01",
+            start_date="2024-10-26",
             end_date="2024-12-31"
     )
 
