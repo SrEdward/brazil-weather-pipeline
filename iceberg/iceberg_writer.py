@@ -56,9 +56,10 @@ def get_catalog():
             **{
                 "warehouse": "s3://{}/iceberg".format(os.getenv("S3_BUCKET")),
                 "region_name": os.getenv("AWS_REGION", "us-east-1"),
-                "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID"),
-                "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
-                "glue.region": os.getenv("AWS_REGION", "us-east-1")
+                "client.aws-access-key-id": os.getenv("AWS_ACCESS_KEY_ID"),
+                "aws-secret-access-key": os.getenv("AWS_SECRET_ACCESS_KEY"),
+                "glue.region": os.getenv("AWS_REGION", "us-east-1"),
+                "client.region": os.getenv("AWS_REGION", "us-esat-1")
             }
         )
 
@@ -70,9 +71,11 @@ def get_or_create_table(catalog):
     table_name = "weather_data"
     full_name = "{}.{}".format(namespace, table_name)
 
-    if not catalog.namespace_exists(namespace):
+    try:
         catalog.create_namespace(namespace)
         logger.info("Namespace '{}' criado.".format(namespace))
+    except Exception:
+        logger.info("Namespace '{}' já existe.".format(namespace))
 
     if not catalog.table_exists(full_name):
         table = catalog.create_table(

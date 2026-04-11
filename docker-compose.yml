@@ -15,6 +15,7 @@ x-airflow-common: &airflow-common
     - ./plugins:/opt/airflow/plugins
     - ./ingestion:/opt/airflow/ingestion
     - ./dbt_project:/opt/airflow/dbt_project
+    - ./iceberg:/opt/airflow/iceberg
     - ~/.dbt/profiles.yml:/home/airflow/.dbt/profiles.yml
   depends_on:
     postgres:

@@ -1,9 +1,10 @@
+import sys
+import os
+
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 from datetime import datetime, timedelta
-import sys
-import os
 
 # Adiciona o diretório raiz ao path para importar os módulos
 sys.path.insert(0, '/opt/airflow')
@@ -16,6 +17,7 @@ default_args = {
     'retries': 2,
     'retry_delay': timedelta(minutes=5),
 }
+
 
 def extract_and_load_s3(**context):
     """Extrai dados da Open-Meteo e carrega no S3."""
@@ -30,6 +32,7 @@ def extract_and_load_s3(**context):
         target_date=execution_date,
     )
 
+
 def load_s3_to_snowflake(**context):
     """Carrega dados do S3 para o Snowflake."""
     from ingestion.snowflake_loader import s3_to_snowflake
@@ -43,11 +46,33 @@ def load_s3_to_snowflake(**context):
         target_date=execution_date,
     )
 
+
+def write_to_iceberg(**context):
+    """Escreve dados do S3 raw para o Iceberg."""
+
+    import sys
+    sys.path.insert(0, "/opt/airflow")
+
+    from iceberg.iceberg_writer import write_date_to_iceberg
+    from dotenv import load_dotenv
+
+    load_dotenv("/opt/airflow/.env", override=True)
+
+    execution_date = context["ds"]
+
+    print(os.environ)
+
+    write_date_to_iceberg(
+        bucket=os.getenv("S3_BUCKET"),
+        date=execution_date
+    )
+
+
 with DAG(
     dag_id='weather_pipeline',
     description='Pipeline ELT completo: Open-Meteo → S3 → Snowflake → dbt',
     default_args=default_args,
-    start_date=datetime(2025, 1, 15),
+    start_date=datetime(2024, 1, 1),
     schedule_interval='0 6 * * *',  # Todo dia às 6h
     catchup=False,
     tags=['weather', 'elt', 'snowflake', 'dbt'],
@@ -72,8 +97,14 @@ with DAG(
 
     test_task = BashOperator(
         task_id='dbt_test',
-        bash_command='cd /opt/airflow/dbt_project && dbt test --profiles-dir /home/airflow/.dbt',
+        bash_command='cd /opt/airflow/dbt_project && dbt test --profiles-dir /home/airflow/.dbt && cd /opt/airflow',
     )
 
-    # Define a ordem de execução
-    extract_task >> load_task >> transform_task >> test_task
+    iceberg_task = PythonOperator(
+            task_id="write_to_iceberg",
+            python_callable=write_to_iceberg,
+            provide_context=True
+    )
+
+
+    extract_task >> load_task >> transform_task >> test_task >> iceberg_task
