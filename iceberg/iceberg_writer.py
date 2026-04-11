@@ -56,9 +56,10 @@ def get_catalog():
             **{
                 "warehouse": "s3://{}/iceberg".format(os.getenv("S3_BUCKET")),
                 "region_name": os.getenv("AWS_REGION", "us-east-1"),
-                "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID"),
-                "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
-                "glue.region": os.getenv("AWS_REGION", "us-east-1")
+                "client.aws-access-key-id": os.getenv("AWS_ACCESS_KEY_ID"),
+                "aws-secret-access-key": os.getenv("AWS_SECRET_ACCESS_KEY"),
+                "glue.region": os.getenv("AWS_REGION", "us-east-1"),
+                "client.region": os.getenv("AWS_REGION", "us-esat-1")
             }
         )
 
@@ -70,9 +71,11 @@ def get_or_create_table(catalog):
     table_name = "weather_data"
     full_name = "{}.{}".format(namespace, table_name)
 
-    if not catalog.namespace_exists(namespace):
+    try:
         catalog.create_namespace(namespace)
         logger.info("Namespace '{}' criado.".format(namespace))
+    except Exception:
+        logger.info("Namespace '{}' já existe.".format(namespace))
 
     if not catalog.table_exists(full_name):
         table = catalog.create_table(
@@ -150,8 +153,42 @@ def write_date_to_iceberg(bucket: str, date: str) -> None:
     logger.info("Concluído!")
 
 
+def backfill_historical(bucket: str, start_date: str, end_date: str) -> None:
+    """Escreve dados históricos do S3 raw para o Iceberg."""
+
+    from datetime import timedelta
+
+    catalog = get_catalog()
+    table = get_or_create_table(catalog)
+
+    start = datetime.strptime(start_date, "%Y-%m-%d")
+    end = datetime.strptime(end_date, "%Y-%m-%d")
+    
+    current = start
+
+    while current <= end:
+        date_str = current.strftime("%Y-%m-%d")
+
+        try:
+            records = read_from_s3(bucket, date_str)
+            write_to_iceberg(table, records)
+
+            logger.info("✅ {} - {} registros".format(date_str, len(records)))
+        except Exception as e:
+            logger.warning("⚠️ {} - pulando: {}".format(date_str, e))
+
+        current += timedelta(days=1)
+
+
+# if __name__ == "__main__":
+#     write_date_to_iceberg(
+#             bucket=os.getenv("S3_BUCKET"),
+#             date="2024-01-01"
+#     )
+
 if __name__ == "__main__":
-    write_date_to_iceberg(
+    backfill_historical(
             bucket=os.getenv("S3_BUCKET"),
-            date="2024-01-01"
+            start_date="2024-01-01",
+            end_date="2024-12-31"
     )
