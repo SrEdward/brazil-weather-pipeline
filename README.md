@@ -178,8 +178,8 @@ ORDER BY avg_temp DESC;
 - [x] Airflow Orchestration
 - [x] Docker containerization
 - [X] Terraform infrastructure provisioning
-- [ ] Apache Iceberg lakehouse layer
-- [ ] Kafka real-time streaming layer
+- [x] Apache Iceberg lakehouse layer
+- [x] Kafka real-time streaming layer
 
 ---
 
