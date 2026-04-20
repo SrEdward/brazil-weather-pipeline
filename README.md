@@ -1,7 +1,3 @@
-12:14 PM
-Working
-
-markdown
 # 🌦️ Brazil Weather Pipeline
 
 A production-grade data platform that ingests daily weather data from 10 Brazilian cities, processes it through a full modern data stack — batch ELT, lakehouse storage, and real-time streaming — orchestrated end-to-end with Apache Airflow.
