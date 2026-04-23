@@ -8,3 +8,8 @@ variable "s3_bucket_name" {
   description = "Name of the S3 bucket for raw weather data"
   type = string
 }
+
+variable "aws_account_id" {
+  description = "AWS Account ID"
+  type = string
+}

@@ -78,9 +78,9 @@ resource "aws_iam_user" "weather_pipeline" {
   }
 }
 
-resource "aws_iam_access_key" "weather_pipeline" {
-  user = aws_iam_user.weather_pipeline.name
-}
+# resource "aws_iam_access_key" "weather_pipeline" {
+#   user = aws_iam_user.weather_pipeline.name
+# }
 
 resource "aws_iam_user_policy" "weather_pipeline_s3" {
   name = "weather-pipeline-s3-policy"
