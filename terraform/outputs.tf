@@ -13,13 +13,13 @@ output "iam_user_name" {
   value = aws_iam_user.weather_pipeline.name
 }
 
-output "iam_access_key_id" {
-  description = "IAM access key ID"
-  value = aws_iam_access_key.weather_pipeline.id
-}
-
-output "iam_secret_access_key" {
-  description = "IAM secret access key"
-  value = aws_iam_access_key.weather_pipeline.secret
-  sensitive = true
-}
+# output "iam_access_key_id" {
+#   description = "IAM access key ID"
+#   value = aws_iam_access_key.weather_pipeline.id
+# }
+# 
+# output "iam_secret_access_key" {
+#   description = "IAM secret access key"
+#   value = aws_iam_access_key.weather_pipeline.secret
+#   sensitive = true
+# }
