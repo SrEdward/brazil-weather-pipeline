@@ -248,7 +248,7 @@ df = con.execute("""
 - [x] Terraform infrastructure provisioning
 - [x] Apache Iceberg lakehouse layer
 - [x] Kafka real-time streaming layer
-- [ ] Snowflake External Iceberg Tables (read Iceberg directly from Snowflake)
+- [X] Snowflake External Iceberg Tables (read Iceberg directly from Snowflake)
 
 ---
 
