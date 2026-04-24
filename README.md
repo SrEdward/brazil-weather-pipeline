@@ -250,4 +250,5 @@ dbt tests run automatically after every transformation:
 
 **Eduardo Nunes de Almeida**
 Data Engineer | Brazil
+
 [GitHub](https://github.com/SrEdward) · [Upwork](https://www.upwork.com/fl/eduardonunes) · nunese6@gmail.com
