@@ -21,16 +21,18 @@ Python Extractor
       │         │
       │         ▼
       │    dbt Models
-      │    ├── STAGING.stg_weather (view)
-      │    └── MARTS.*
+      │    ├── stg_weather (view)
+      │    └── MARTS
       │        ├── mart_daily_temperature (table)
       │        ├── mart_state_summary (table)
       │        └── mart_rain_alerts (table)
       │
       └──► Apache Iceberg (S3 Parquet)
                 s3://brazil-weather-pipeline-raw/iceberg/
-                Partitioned by month │ Catalog: AWS Glue
-                Queried via DuckDB   │
+                Catalog: AWS Glue
+                Partitioned by month
+                ├── Queried via DuckDB (local)
+                └── Queried via Snowflake External Iceberg Table
 
 Kafka Streaming (parallel to batch):
 Producer → Topic: weather-events → Consumer → Iceberg
@@ -38,8 +40,6 @@ Producer → Topic: weather-events → Consumer → Iceberg
 Orchestration (Airflow DAG: weather_pipeline):
 extract_to_s3 → load_to_snowflake → dbt_transform → dbt_test → write_to_iceberg
 Scheduled: daily at 06:00 UTC
-
-Infrastructure: fully provisioned via Terraform
 ```
 
 ---
@@ -47,20 +47,20 @@ Infrastructure: fully provisioned via Terraform
 ## 🛠️ Tech Stack
 
 | Layer | Technology |
-| --- | --- |
-| Extraction | Python, Open-Meteo API |
+|---|---|
+| Language | Python 3.12 |
+| Extraction | Open-Meteo API |
 | Raw Storage | AWS S3 |
 | Data Warehouse | Snowflake |
-| Transformation | dbt (staging + marts) |
+| Transformation | dbt-snowflake |
 | Orchestration | Apache Airflow 2.9 |
-| Lakehouse Format | Apache Iceberg (PyIceberg 0.7.1) |
-| Glue Catalog | AWS Glue |
+| Lakehouse Format | Apache Iceberg (PyIceberg 0.7) |
+| Lakehouse Catalog | AWS Glue |
 | Query Engine | DuckDB |
-| Streaming | Apache Kafka (kafka-python 2.3.1) |
-| IaC | Terraform 1.14.8 |
+| Streaming | Apache Kafka |
 | Containerization | Docker + Docker Compose |
+| IaC | Terraform |
 | Cloud | AWS (S3, IAM, Glue) |
-| Version Control | Git + GitHub (PRs, semantic commits) |
 
 ---
 
@@ -69,7 +69,7 @@ Infrastructure: fully provisioned via Terraform
 - **Source:** [Open-Meteo Historical Weather API](https://open-meteo.com/)
 - **Coverage:** 10 Brazilian cities across all major regions
 - **Period:** 2024 full year (366 days)
-- **Volume:** ~3,740 records (batch + streaming)
+- **Volume:** ~3,730 records
 - **Metrics:** Max/Min/Mean temperature, precipitation, wind speed, humidity
 - **Iceberg partitioning:** by month (`weather_date_month`)
 
@@ -102,18 +102,50 @@ extract_to_s3 → load_to_snowflake → dbt_transform → dbt_test → write_to_
 - **load_to_snowflake** — Reads from S3 and inserts into Snowflake staging table
 - **dbt_transform** — Runs all dbt models (1 staging view + 3 mart tables)
 - **dbt_test** — Runs 11 data quality tests across all models
-- **write_to_iceberg** — Writes processed data to Iceberg tables on S3, catalogued via AWS Glue
+- **write_to_iceberg** — Writes processed records to Iceberg table on S3, partitioned by month
 
 ---
 
-## 🌊 Kafka Streaming Layer
+## 🏔️ Lakehouse Layer (Apache Iceberg)
 
-A parallel real-time streaming pipeline runs independently of the batch layer:
+Weather data is written to an Apache Iceberg table on S3, catalogued via AWS Glue. The same data is queryable from two engines without duplication:
 
-- **Producer** (`kafka/producer.py`) — fetches current weather data and publishes to the `weather-events` topic
-- **Consumer** (`kafka/consumer.py`) — consumes events and writes them directly to Iceberg on S3
+**DuckDB (local):**
+```python
+import duckdb
 
-Both services run as Docker containers alongside Airflow via Docker Compose.
+conn = duckdb.connect()
+conn.execute("INSTALL iceberg; LOAD iceberg;")
+
+df = conn.execute("""
+    SELECT city, AVG(temp_mean_c) AS avg_temp
+    FROM iceberg_scan('s3://brazil-weather-pipeline-raw/iceberg/brazil_weather.db/weather_data')
+    GROUP BY city
+    ORDER BY avg_temp DESC
+""").df()
+```
+
+**Snowflake External Iceberg Table:**
+```sql
+-- Snowflake reads directly from S3 Parquet via Glue catalog — zero data movement
+SELECT state, ROUND(AVG(temp_mean_c), 2) AS avg_temp
+FROM STAGING.iceberg_weather_data
+GROUP BY state
+ORDER BY avg_temp DESC;
+```
+
+---
+
+## 📡 Streaming Layer (Apache Kafka)
+
+A parallel Kafka pipeline runs alongside the batch layer, streaming real-time weather events into the same Iceberg table:
+
+```
+Producer (kafka/producer.py)
+    └──► Topic: weather-events
+              └──► Consumer (kafka/consumer.py)
+                        └──► Iceberg (S3)
+```
 
 ---
 
@@ -121,20 +153,20 @@ Both services run as Docker containers alongside Airflow via Docker Compose.
 
 ```
 brazil-weather-pipeline/
-├── Dockerfile                         # Custom Airflow image
-├── docker-compose.yml                 # Airflow + Postgres + Kafka + Zookeeper
+├── Dockerfile                        # Custom Airflow image
+├── docker-compose.yml                # Airflow + Postgres + Kafka + Zookeeper
 ├── requirements.txt
 ├── dags/
-│   └── weather_pipeline.py            # Main Airflow DAG
+│   └── weather_pipeline.py           # Main Airflow DAG
 ├── ingestion/
-│   ├── inmet_extractor.py             # Open-Meteo extractor + S3 upload
-│   └── snowflake_loader.py            # S3 → Snowflake loader
+│   ├── inmet_extractor.py            # Open-Meteo extractor + S3 upload
+│   └── snowflake_loader.py           # S3 → Snowflake loader
 ├── iceberg/
-│   ├── iceberg_writer.py              # PyIceberg writer → S3 Parquet
-│   └── duckdb_query.py                # Analytical queries via DuckDB
+│   ├── iceberg_writer.py             # PyIceberg writer → S3 Parquet
+│   └── duckdb_query.py               # Analytical queries via DuckDB
 ├── kafka/
-│   ├── producer.py                    # Kafka producer (current weather)
-│   └── consumer.py                    # Kafka consumer → Iceberg
+│   ├── producer.py                   # Kafka producer (real-time events)
+│   └── consumer.py                   # Kafka consumer → Iceberg
 ├── dbt_project/
 │   ├── models/
 │   │   ├── staging/
@@ -148,9 +180,9 @@ brazil-weather-pipeline/
 │   └── macros/
 │       └── generate_schema_name.sql
 └── terraform/
-    ├── main.tf                        # S3 bucket + IAM + Glue policies
-    ├── variables.tf
-    └── outputs.tf
+    ├── main.tf                       # S3 + IAM user + Glue policies
+    ├── snowflake_iceberg.tf          # IAM Role + policies for Snowflake
+    └── variables.tf
 ```
 
 ---
@@ -165,38 +197,26 @@ brazil-weather-pipeline/
 
 ### Setup
 
-**1. Clone the repository**
-
 ```bash
+# 1. Clone the repository
 git clone https://github.com/SrEdward/brazil-weather-pipeline.git
 cd brazil-weather-pipeline
-```
 
-**2. Configure environment variables**
-
-```bash
+# 2. Configure environment variables
 cp .env.example .env
 # Edit .env with your credentials
-```
 
-**3. Start all services**
-
-```bash
-sudo modprobe overlay   # required on some Linux setups
+# 3. Start all services (Airflow + Kafka + Zookeeper)
+echo "AIRFLOW_UID=$(id -u)" >> .env
 docker compose up -d
+
+# 4. Access Airflow UI
+# URL: http://localhost:8080
+# User: admin / Password: admin
+
+# 5. Trigger the pipeline
+# Enable and trigger the weather_pipeline DAG in the Airflow UI
 ```
-
-**4. Access Airflow UI**
-
-```
-URL:      http://localhost:8080
-User:     admin
-Password: admin
-```
-
-**5. Trigger the pipeline**
-
-Enable and trigger the `weather_pipeline` DAG in the Airflow UI.
 
 ---
 
@@ -213,32 +233,6 @@ dbt tests run automatically after every transformation:
 
 ---
 
-## 📈 Sample Queries
-
-```sql
--- Average temperature by state in 2024
-SELECT state, ROUND(AVG(temp_mean_c), 2) AS avg_temp
-FROM MARTS.MART_DAILY_TEMPERATURE
-GROUP BY state
-ORDER BY avg_temp DESC;
-```
-
-```python
-# Query Iceberg directly via DuckDB (no Snowflake needed)
-import duckdb
-con = duckdb.connect()
-con.execute("INSTALL iceberg; LOAD iceberg;")
-df = con.execute("""
-    SELECT weather_date, city, temp_max_c, temp_min_c
-    FROM iceberg_scan('s3://brazil-weather-pipeline-raw/iceberg/brazil_weather.db/weather_data')
-    WHERE weather_date_month = '2024-07'
-    ORDER BY temp_max_c DESC
-    LIMIT 10
-""").df()
-```
-
----
-
 ## 🗺️ Roadmap
 
 - [x] ELT Pipeline (Extract → S3 → Snowflake)
@@ -246,9 +240,9 @@ df = con.execute("""
 - [x] Airflow Orchestration
 - [x] Docker containerization
 - [x] Terraform infrastructure provisioning
-- [x] Apache Iceberg lakehouse layer
+- [x] Apache Iceberg lakehouse layer (PyIceberg + AWS Glue)
 - [x] Kafka real-time streaming layer
-- [X] Snowflake External Iceberg Tables (read Iceberg directly from Snowflake)
+- [x] Snowflake External Iceberg Tables (query S3 directly from Snowflake)
 
 ---
 
@@ -256,3 +250,4 @@ df = con.execute("""
 
 **Eduardo Nunes de Almeida**
 Data Engineer | Brazil
+[GitHub](https://github.com/SrEdward) · [Upwork](https://www.upwork.com/fl/eduardonunes) · nunese6@gmail.com

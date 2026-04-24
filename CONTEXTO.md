@@ -9,8 +9,9 @@ Leia este arquivo antes de qualquer ação técnica.
 
 **Eduardo Nunes de Almeida**
 - Data Engineer | Gravataí, RS, Brasil
-- Graduado em Ciência da Computação — UNISINOS (2024)
-- Freelancer no Upwork
+- Graduado em Ciência da Computação — UNISINOS (Jan 2025)
+- Freelancer no Upwork (rate: $40/h)
+- GitHub: https://github.com/SrEdward
 - Stack principal: Python, SQL, Airflow, dbt, Snowflake, AWS
 - SO: Arch Linux | Editor: VS Code | Shell: bash
 
@@ -48,6 +49,8 @@ Python Extractor (ingestion/inmet_extractor.py)
                   brazil_weather.db/weather_data/
                   Particionado por mês
                   Catálogo: AWS Glue
+                  ├── Queries locais via DuckDB
+                  └── Snowflake External Iceberg Table (STAGING.iceberg_weather_data)
 
 Kafka Streaming (paralelo ao batch):
 Producer (kafka/producer.py) → Topic: weather-events → Consumer (kafka/consumer.py) → Iceberg
@@ -66,7 +69,7 @@ Agendamento: diário às 06:00 UTC
 | Linguagem | Python | 3.12.12 (venv) |
 | Extração | Open-Meteo API | - |
 | Storage raw | AWS S3 | - |
-| Data Warehouse | Snowflake | - |
+| Data Warehouse | Snowflake | Standard Edition |
 | Transformação | dbt-snowflake | 1.11.7 |
 | Orquestração | Apache Airflow | 2.9.1 |
 | Lakehouse | Apache Iceberg (PyIceberg) | 0.7.1 |
@@ -85,6 +88,7 @@ Agendamento: diário às 06:00 UTC
 - **Bucket S3:** `brazil-weather-pipeline-raw`
 - **IAM User (aplicação):** `weather-pipeline-user` — acesso restrito a S3 e Glue
 - **IAM User (admin):** usuário pessoal do Eduardo — usado para Terraform
+- **IAM Role (Snowflake):** `snowflake-iceberg-role` — usada pelo Snowflake para acessar S3 e Glue via sts:AssumeRole
 - **Glue Catalog:** namespace `brazil_weather`, tabela `weather_data`
 - **Toda infraestrutura gerenciada via Terraform** em `terraform/`
 
@@ -97,6 +101,9 @@ Agendamento: diário às 06:00 UTC
 - **Schemas:** STAGING, MARTS, PUBLIC
 - **Warehouse:** WEATHER_PIPELINE_WH
 - **Role:** ACCOUNTADMIN
+- **External Volume:** `iceberg_s3_vol` (ALLOW_WRITES=FALSE, aponta para s3://brazil-weather-pipeline-raw/iceberg/)
+- **Catalog Integration:** `glue_catalog_int` (GLUE, namespace brazil_weather)
+- **External Iceberg Table:** `STAGING.iceberg_weather_data` (3.730 registros validados)
 
 ---
 
@@ -144,6 +151,7 @@ brazil-weather-pipeline/
 │
 └── terraform/
     ├── main.tf                        # S3 bucket + IAM user + Glue policies
+    ├── snowflake_iceberg.tf           # IAM Role + policies para Snowflake
     ├── variables.tf
     ├── outputs.tf
     └── terraform.tfvars               # Nunca no Git
@@ -184,6 +192,8 @@ docker compose ps
 | pyOpenSSL erro SSL | Versão incompatível | `pip install pyOpenSSL==23.2.0` |
 | Iceberg schema mismatch | required vs optional | Todos os campos definidos como `required=False` |
 | Kafka tópico não encontrado | Nome diferente entre producer e consumer | Verificar nome do tópico nos dois arquivos |
+| Snowflake External Volume — PutObject denied | Role sem permissão de escrita | Criar External Volume com `ALLOW_WRITES=FALSE` |
+| Terraform state inconsistente | Recursos criados fora do Terraform | Usar `terraform import` para cada recurso existente |
 
 ---
 
@@ -192,7 +202,7 @@ docker compose ps
 - **Fonte:** Open-Meteo Historical Weather API + Forecast API
 - **Cidades:** Porto Alegre, São Paulo, Rio de Janeiro, Salvador, Fortaleza, Manaus, Belém, Brasília, Cuiabá, Recife
 - **Período histórico:** 2024-01-01 até 2024-12-31 (366 dias)
-- **Volume:** ~3.740 registros (batch + streaming)
+- **Volume:** ~3.730 registros (batch + streaming)
 - **Particionamento Iceberg:** por mês (`weather_date_month`)
 
 ---
@@ -208,11 +218,23 @@ docker compose ps
 
 ---
 
+## ✅ Status do Projeto
+
+O projeto está **completo**. Todos os itens do roadmap foram implementados:
+
+- [x] ELT Pipeline (Extract → S3 → Snowflake)
+- [x] dbt Transformations (staging + 3 marts)
+- [x] Airflow Orchestration
+- [x] Docker containerização
+- [x] Terraform IaC
+- [x] Apache Iceberg lakehouse layer (PyIceberg + AWS Glue)
+- [x] Kafka real-time streaming layer
+- [x] Snowflake External Iceberg Tables
+
+---
+
 ## 🗺️ Próximos Passos
 
-- [ ] Atualizar CV com o projeto completo
-- [ ] Melhorar perfil do GitHub (bio, pins, README do perfil)
-- [ ] Otimizar perfil do Upwork com o projeto
-- [ ] Projeto 2: Real-time Pipeline (Kafka + Flink/Spark Streaming)
+- [ ] Projeto 2: discussão arquitetural primeiro, depois escolha da stack
 - [ ] Projeto 3: Data Platform com Lakehouse (Iceberg + dbt + Trino)
-- [ ] Snowflake External Iceberg Tables (ler do S3 direto no Snowflake)
+- [ ] Submissão do artigo JBCS (GRU-based temperature forecasting)
